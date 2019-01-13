@@ -5,9 +5,10 @@ const ncp = require('ncp').ncp;
 const path = require('path');
 const sortBy = require('lodash/sortBy');
 const startsWith = require('lodash/startsWith');
+const argv = require('yargs').argv;
 
 const DUPLICATED_FOLDER_PREFIX = '__SingleSaber__ ';
-const SONG_FOLDER = path.join('..', 'CustomSongs'); //TODO: yargs input/default
+const SONG_FOLDER = argv.path || path.join(path.dirname(process.execPath), 'CustomSongs');
 
 const OPPOSING_DIRECTIONS = [
   1,

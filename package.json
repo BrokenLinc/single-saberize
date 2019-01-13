@@ -4,12 +4,15 @@
   "description": "Creates single-saber maps from normal Beat Saber maps.",
   "main": "index.js",
   "scripts": {
-    "build": "node index.js"
+    "build": "pkg index.js --targets=win --out-path=dist",
+    "process": "node index.js --path=../CustomSongs"
   },
   "author": "Lincoln Anderson",
   "license": "MIT",
   "dependencies": {
     "lodash": "^4.17.11",
-    "ncp": "^2.0.0"
+    "ncp": "^2.0.0",
+    "pkg": "^4.3.7",
+    "yargs": "^12.0.5"
   }
 }
