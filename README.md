@@ -3,8 +3,8 @@ Creates single-saber maps from your Beat Saber custom song library.
 
 ### Instructions
 1. Download some custom songs if you haven't already.
-    1. [Beat Saber Mod Installer](Umbranoxio/BeatSaberModInstaller/releases) is highly recommended.
-2. Download the [latest release of single-saberizer.exe](/releases/latest), place it in your `Beat Saber` program directory (usually in `SteamLibrary/steamapps/common/Beat Saber`), and run it.
+    1. [Beat Saber Mod Installer](https://github.com/Umbranoxio/BeatSaberModInstaller/releases) is highly recommended.
+2. Download the [latest release of single-saberizer.exe](https://github.com/Landerson352/single-saberize/releases/latest), place it in your `Beat Saber` program directory (usually in `SteamLibrary/steamapps/common/Beat Saber`), and run it.
     1. If you have trouble finding the folder, open Beat Saber's "Properties" menu in Steam and "Browse Local Files".
 
 ### How does it work?
@@ -23,7 +23,7 @@ I made this script to help open up the existing catalog of custom songs to these
 
 ### Help
 
-I'm not affiliated with the Beat Saber team (even though I think they are brilliant), so please [report any issues here](/issues). This is a hobby project for me, so I'll try to answer any questions as time allows. Thanks!
+I'm not affiliated with the Beat Saber team (even though I think they are brilliant), so please [report any issues here](https://github.com/Landerson352/single-saberize/issues). This is a hobby project for me, so I'll try to answer any questions as time allows. Thanks!
 
 ## Contributing
 
