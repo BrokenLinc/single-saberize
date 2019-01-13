@@ -3,8 +3,8 @@ Creates single-saber maps from your Beat Saber custom song library.
 
 ### Instructions
 1. Download some custom songs if you haven't already.
-    1. [Beat Saber Mod Installer](https://github.com/Umbranoxio/BeatSaberModInstaller/releases) is highly recommended.
-2. Download the [latest release of single-saberizer.exe](https://github.com/Landerson352/single-saberize/releases/latest), place it in your `Beat Saber` program directory (usually in `SteamLibrary/steamapps/common/Beat Saber`), and run it.
+    1. [Beat Saber Mod Installer](https://github.com/Umbranoxio/BeatSaberModInstaller) is highly recommended.
+2. Download the [latest release of single-saberize.exe](https://github.com/Landerson352/single-saberize/releases/latest), place it in your `Beat Saber` program directory (usually in `SteamLibrary/steamapps/common/Beat Saber`), and run it.
     1. If you have trouble finding the folder, open Beat Saber's "Properties" menu in Steam and "Browse Local Files".
 
 ### How does it work?
@@ -33,11 +33,11 @@ I'm not affiliated with the Beat Saber team (even though I think they are brilli
    
 ##### Setup
 - Check out the project folder beside a `CustomSongs` folder.
-    - _For example, I have a `CustomSongs` folder with a few test songs beside my `single-saberizer` working directory._
+    - _For example, I have a `CustomSongs` folder with a few test songs beside my `single-saberize` working directory._
 - Run `yarn` to install dependencies.
 
 ##### Development
-- Make any edits to `single-saberizer.js`.
+- Make any edits to `single-saberize.js`.
 - Run `yarn test` to process the songs.
 
 ##### Publishing
