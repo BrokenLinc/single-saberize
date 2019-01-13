@@ -30,19 +30,13 @@ const getDirectories = source =>
   fs.readdirSync(source).map(name => path.join(source, name)).filter(isDirectory)
 
 const debug = (message) => {
-  // if(argv.log === 'verbose') {
   console.log(chalk.gray(message));
-  // }
 };
 const success = (message) => {
-  // if(argv.log === 'verbose') {
   console.log(chalk.blue(message));
-  // }
 };
 const error = (message) => {
-  // if(argv.log === 'verbose') {
   console.log(chalk.red(message));
-  // }
 };
 
 const processSongsInFolder = (folder) => {
