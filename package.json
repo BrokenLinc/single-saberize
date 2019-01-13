@@ -2,10 +2,10 @@
   "name": "single-saberize",
   "version": "1.0.0",
   "description": "Creates single-saber maps from normal Beat Saber maps.",
-  "main": "single-saberizer.js",
+  "main": "single-saberize.js",
   "scripts": {
-    "build": "pkg single-saberizer.js --targets=win --out-path=dist",
-    "process": "node single-saberizer.js --path=../CustomSongs"
+    "build": "pkg single-saberize.js --targets=win --out-path=dist",
+    "process": "node single-saberize.js --path=../CustomSongs"
   },
   "author": "Lincoln Anderson",
   "license": "MIT",

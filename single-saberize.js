@@ -10,16 +10,16 @@ const argv = require('yargs').argv;
 const DUPLICATED_FOLDER_PREFIX = '__SingleSaber__ ';
 const SONG_FOLDER = argv.path || path.join(path.dirname(process.execPath), 'CustomSongs');
 
-const OPPOSING_DIRECTIONS = [
-  1,
-  0,
-  3,
-  2,
-  6,
-  7,
-  4,
-  5,
-];
+// const OPPOSING_DIRECTIONS = [
+//   1,
+//   0,
+//   3,
+//   2,
+//   6,
+//   7,
+//   4,
+//   5,
+// ];
 
 const processSongsInFolder = (folder) => {
   fs.readdir(folder, function(err, items) {
