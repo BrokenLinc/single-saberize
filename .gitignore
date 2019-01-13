@@ -62,3 +62,6 @@ typings/
 
 # IntelliJ IDEA
 .idea
+
+# Build files
+dist

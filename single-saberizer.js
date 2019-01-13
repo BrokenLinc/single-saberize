@@ -151,11 +151,11 @@ const updateDifficultyLevel = (levelFilePath, levelObject, difficulty) => {
     // console.log(note._cutDirection);
     if(possibleRedConversion) {
       const timeElapsed2 = Math.abs(possibleRedConversion._time - note._time);
-      if(timeElapsed2 > 0) { //threshold
+      if(timeElapsed2 > 0.25) { //threshold
         // flip the note for flow
-        if(!lastNote || lastNote._cutDirection === note._cutDirection) {
-          possibleRedConversion._cutDirection = OPPOSING_DIRECTIONS[note._cutDirection];
-        }
+        // if(!lastNote || lastNote._cutDirection === note._cutDirection) {
+        //   possibleRedConversion._cutDirection = OPPOSING_DIRECTIONS[note._cutDirection];
+        // }
         notes.push(possibleRedConversion);
         lastNote = possibleRedConversion;
         possibleRedConversion = null;
@@ -163,7 +163,7 @@ const updateDifficultyLevel = (levelFilePath, levelObject, difficulty) => {
     }
     if(!possibleRedConversion && note._type === 0) { // maybe make "red/left" into "blue/right" saber notes
       const timeElapsed = Math.abs(lastNote._time - note._time);
-      if(timeElapsed > 0) { // threshold
+      if(timeElapsed > 0.25) { // threshold
         possibleRedConversion = {
           ...note,
           _type: 1,
