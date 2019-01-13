@@ -1,4 +1,6 @@
+const chalk = require('chalk');
 const each = require('lodash/each');
+const isEmpty = require('lodash/isEmpty');
 const filter = require('lodash/filter');
 const fs = require('fs');
 const ncp = require('ncp').ncp;
@@ -9,6 +11,8 @@ const argv = require('yargs').argv;
 
 const DUPLICATED_FOLDER_PREFIX = '__SingleSaber__ ';
 const SONG_FOLDER = argv.path || path.join(path.dirname(process.execPath), 'CustomSongs');
+
+let songCount = 0;
 
 // const OPPOSING_DIRECTIONS = [
 //   1,
@@ -21,21 +25,42 @@ const SONG_FOLDER = argv.path || path.join(path.dirname(process.execPath), 'Cust
 //   5,
 // ];
 
+const isDirectory = source => fs.lstatSync(source).isDirectory()
+const getDirectories = source =>
+  fs.readdirSync(source).map(name => path.join(source, name)).filter(isDirectory)
+
+const debug = (message) => {
+  // if(argv.log === 'verbose') {
+  console.log(chalk.gray(message));
+  // }
+};
+const success = (message) => {
+  // if(argv.log === 'verbose') {
+  console.log(chalk.blue(message));
+  // }
+};
+const error = (message) => {
+  // if(argv.log === 'verbose') {
+  console.log(chalk.red(message));
+  // }
+};
+
 const processSongsInFolder = (folder) => {
   fs.readdir(folder, function(err, items) {
     const songFolders = filter(items, function(item) {
       return !startsWith(item, '.') && !startsWith(item, DUPLICATED_FOLDER_PREFIX);
     });
-    console.log(`Processing ${songFolders.length} custom songs...`);
+    songCount = songFolders.length;
+    debug(`Processing ${songFolders.length} custom songs...`);
     each(songFolders, (item) => {
       if(!startsWith(item, '.') && !startsWith(item, DUPLICATED_FOLDER_PREFIX)) {
         const newSongFolder = `${DUPLICATED_FOLDER_PREFIX}${item}`;
         const newSongFolderPath = path.join(folder, newSongFolder);
         ncp(path.join(folder, item), newSongFolderPath, function (err) {
           if (err) {
-            return console.error(err);
+            return error(err);
           }
-          console.log(`Created "${newSongFolder}"...`);
+          debug(`Created "${newSongFolder}"...`);
           //TODO: Find better way to proceed once files are done copying
           setTimeout(() => {
             processSongFolder(newSongFolderPath);
@@ -44,46 +69,55 @@ const processSongsInFolder = (folder) => {
       }
     });
   });
+  setInterval(() => {}, 10000); // keep window open
+  setTimeout(() => {
+    console.log(chalk.green('You may close this window or copy the log to report any errors to the single-saberizer developer.'));
+  }, 2000);
 };
 
 const processSongFolder = (folder) => {
   const infoFilePath = path.join(folder, 'info.json');
   if(fs.existsSync(infoFilePath)) {
-    console.log(`Found "info.json" in "${folder}".`);
+    debug(`Found "info.json" in "${folder}".`);
     processSongDataFile(infoFilePath, folder);
   } else {
     // recursion
-    console.log(`Did not find "info.json" in "${folder}", searching subdirectories...`);
-    fs.readdir(folder, function (err, items) {
-      // console.log(items);
-      each(items, (item) => {
-        processSongFolder(path.join(folder, item));
-      });
+    debug(`Did not find "info.json" in "${folder}", searching subdirectories...`);
+    const items = getDirectories(folder);
+    each(items, (item) => {
+      processSongFolder(item);
     });
   }
 };
 
 // Open and parse the info file.
 const processSongDataFile = (infoFilePath, folder) => {
-  let rawData;
+  let rawData, infoObject;
   try {
     rawData = fs.readFileSync(infoFilePath);
   }
   catch(err) {
-    console.log('Error reading "info.json". Aborting conversion.');
-    console.log(err);
+    error('Error reading "info.json". Aborting conversion.');
+    debug(err);
   }
 
   if(rawData) {
     try {
-      const infoObject = JSON.parse(rawData);
-      // TODO: Skip songs that are already oneSaber
-      modifyInfo(infoFilePath, infoObject, folder)
+      infoObject = JSON.parse(rawData);
     }
     catch(err) {
-      console.log('Error parsing "info.json". Aborting conversion.');
-      console.log(err);
-      console.log(rawData);
+      error(`Error parsing "${infoFilePath}. Aborting conversion.`);
+      debug(err);
+      debug(rawData);
+    }
+
+    // Skip songs that are already oneSaber
+    if(infoObject) {
+      if(infoObject.oneSaber) {
+        debug(`Existing single-saber track at "${infoFilePath}". Aborting conversion.`);
+      } else {
+        modifyInfo(infoFilePath, infoObject, folder);
+      }
     }
   }
 };
@@ -95,12 +129,12 @@ const modifyInfo = (infoFilePath, infoObject, folder) => {
   try {
     let rawData = JSON.stringify(infoObject);
     fs.writeFileSync(infoFilePath, rawData);
-    console.log(`Updated "${infoFilePath}".`);
-    processDifficultyLevels(infoObject.difficultyLevels, folder);
+    success(`Updated "${infoFilePath}". Processing songs...`);
+    processDifficultyLevels(infoObject.difficultyLevels, folder, infoObject);;
   }
   catch(err) {
-    console.log('Error writing "info.json". Aborting conversion.');
-    console.log(err);
+    error('Error writing "info.json". Aborting conversion.');
+    debug(err);
   }
 };
 
@@ -112,68 +146,76 @@ const modifyInfo = (infoFilePath, infoObject, folder) => {
 //   offset: -570,
 //   oldOffset: -570 }
 
-const processDifficultyLevels = (levels, folder) => {
+const processDifficultyLevels = (levels, folder, infoObject) => {
   each(levels, ({ difficulty, jsonPath }) => {
     const levelFilePath = path.join(folder, jsonPath);
-    processDifficultyLevel(levelFilePath, difficulty);
+    if(fs.existsSync(levelFilePath)) {
+      processDifficultyLevel(levelFilePath, difficulty, infoObject);
+    } else {
+      error(`Did not find "${levelFilePath}". Aborting conversion.`);
+    }
   });
 };
 
-const processDifficultyLevel = (levelFilePath, difficulty) => {
+const processDifficultyLevel = (levelFilePath, difficulty, infoObject) => {
   let rawData;
   try {
-    // console.log(`Loading "${levelFilePath}".`);
+    // debug(`Loading "${levelFilePath}".`);
     rawData = fs.readFileSync(levelFilePath);
   }
   catch(err) {
-    console.log(`Error reading "${levelFilePath}". Aborting conversion.`);
-    console.log(err);
+    error(`Error reading "${levelFilePath}". Aborting conversion.`);
+    debug(err);
   }
 
   if(rawData) {
     try {
       const levelObject = JSON.parse(rawData);
-      updateDifficultyLevel(levelFilePath, levelObject, difficulty);
+      updateDifficultyLevel(levelFilePath, levelObject, difficulty, infoObject);
     }
     catch(err) {
-      console.log(`Error parsing "${levelFilePath}". Aborting conversion.`);
-      console.log(err);
-      console.log(rawData);
+      error(`Error parsing "${levelFilePath}". Aborting conversion.`);
+      debug(err);
+      debug(rawData);
     }
   }
 };
 
-const updateDifficultyLevel = (levelFilePath, levelObject, difficulty) => {
+const updateDifficultyLevel = (levelFilePath, levelObject, difficulty, { beatsPerMinute }) => {
   const notes = [];
   let lastNote = { _time: 0 }, possibleRedConversion;
   const _notes = sortBy(levelObject._notes, ['_time']);
   each(_notes, (note) => {
-    // console.log(note._cutDirection);
-    if(possibleRedConversion) {
-      const timeElapsed2 = Math.abs(possibleRedConversion._time - note._time);
-      if(timeElapsed2 > 0.25) { //threshold
-        // flip the note for flow
-        // if(!lastNote || lastNote._cutDirection === note._cutDirection) {
-        //   possibleRedConversion._cutDirection = OPPOSING_DIRECTIONS[note._cutDirection];
-        // }
-        notes.push(possibleRedConversion);
-        lastNote = possibleRedConversion;
+    // debug(note._cutDirection);
+    if(note._type > 1) { // auto allow mines or whatever
+      notes.push(note);
+    } else {
+      if (possibleRedConversion) {
+        const timeElapsed2 = Math.abs(possibleRedConversion._time - note._time);
+        if (beatsPerMinute / timeElapsed2 < 240) { //threshold
+          // flip the note for flow
+          // if(!lastNote || lastNote._cutDirection === note._cutDirection) {
+          //   possibleRedConversion._cutDirection = OPPOSING_DIRECTIONS[note._cutDirection];
+          // }
+          notes.push(possibleRedConversion);
+          lastNote = possibleRedConversion;
+          possibleRedConversion = null;
+        }
+      }
+      if (!possibleRedConversion && note._type === 0) { // maybe make "red/left" into "blue/right" saber notes
+        const timeElapsed = Math.abs(lastNote._time - note._time);
+        if (beatsPerMinute / timeElapsed < 240) { // threshold
+          possibleRedConversion = {
+            ...note,
+            _type: 1,
+          };
+        }
+      }
+      if (note._type === 1) { // auto allow "blue/right" saber notes
+        notes.push(note);
+        lastNote = note;
         possibleRedConversion = null;
       }
-    }
-    if(!possibleRedConversion && note._type === 0) { // maybe make "red/left" into "blue/right" saber notes
-      const timeElapsed = Math.abs(lastNote._time - note._time);
-      if(timeElapsed > 0.25) { // threshold
-        possibleRedConversion = {
-          ...note,
-          _type: 1,
-        };
-      }
-    }
-    if(note._type === 1) { // auto allow "blue/right" saber notes
-      notes.push(note);
-      lastNote = note;
-      possibleRedConversion = null;
     }
   });
   levelObject._notes = notes;
@@ -193,12 +235,12 @@ const writeDifficultyLevel = (levelFilePath, levelObject) => {
   try {
     let rawData = JSON.stringify(levelObject);
     fs.writeFileSync(levelFilePath, rawData);
-    console.log(`Updated "${levelFilePath}".`);
+    success(`Updated "${levelFilePath}".`);
   }
   catch(err) {
-    console.log(`Error writing "${levelFilePath}". Aborting conversion.`);
-    console.log(err);
+    error(`Error writing "${levelFilePath}". Aborting conversion.`);
+    debug(err);
   }
 };
 
-processSongsInFolder(SONG_FOLDER);
+processSongsInFolder(path.resolve(SONG_FOLDER));

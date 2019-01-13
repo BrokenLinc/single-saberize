@@ -5,11 +5,13 @@
   "main": "single-saberize.js",
   "scripts": {
     "build": "pkg single-saberize.js --targets=win --out-path=dist",
-    "process": "node single-saberize.js --path=../CustomSongs"
+    "test": "node single-saberize.js --path=../CustomSongs",
+    "debug": "node single-saberize.js --path=../CustomSongs --log=verbose"
   },
   "author": "Lincoln Anderson",
   "license": "MIT",
   "dependencies": {
+    "chalk": "^2.4.2",
     "lodash": "^4.17.11",
     "ncp": "^2.0.0",
     "pkg": "^4.3.7",
