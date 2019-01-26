@@ -2,8 +2,7 @@ const chalk = require('chalk');
 const each = require('lodash/each');
 const isEmpty = require('lodash/isEmpty');
 const filter = require('lodash/filter');
-const fs = require('fs');
-const ncp = require('ncp').ncp;
+const fs = require('fs-extra');
 const path = require('path');
 const sortBy = require('lodash/sortBy');
 const startsWith = require('lodash/startsWith');
@@ -40,33 +39,24 @@ const error = (message) => {
 };
 
 const processSongsInFolder = (folder) => {
-  fs.readdir(folder, function(err, items) {
-    const songFolders = filter(items, function(item) {
-      return !startsWith(item, '.') && !startsWith(item, DUPLICATED_FOLDER_PREFIX);
-    });
-    songCount = songFolders.length;
-    debug(`Processing ${songFolders.length} custom songs...`);
-    each(songFolders, (item) => {
-      if(!startsWith(item, '.') && !startsWith(item, DUPLICATED_FOLDER_PREFIX)) {
-        const newSongFolder = `${DUPLICATED_FOLDER_PREFIX}${item}`;
-        const newSongFolderPath = path.join(folder, newSongFolder);
-        ncp(path.join(folder, item), newSongFolderPath, function (err) {
-          if (err) {
-            return error(err);
-          }
-          debug(`Created "${newSongFolder}"...`);
-          //TODO: Find better way to proceed once files are done copying
-          setTimeout(() => {
-            processSongFolder(newSongFolderPath);
-          }, 1000);
-        });
-      }
-    });
+  const items = fs.readdirSync(folder);
+  const songFolders = filter(items, (item) => {
+    return !startsWith(item, '.') && !startsWith(item, DUPLICATED_FOLDER_PREFIX);
   });
+
+  songCount = songFolders.length;
+  debug(`Processing ${songFolders.length} custom songs...`);
+  each(songFolders, (item) => {
+    if(!startsWith(item, '.') && !startsWith(item, DUPLICATED_FOLDER_PREFIX)) {
+      const newSongFolder = `${DUPLICATED_FOLDER_PREFIX}${item}`;
+      const newSongFolderPath = path.join(folder, newSongFolder);
+      fs.copySync(path.join(folder, item), newSongFolderPath);
+      processSongFolder(newSongFolderPath);
+    }
+  });
+
+  console.log(chalk.green('You may close this window or copy the log to report any errors to the single-saberizer developer.'));
   setInterval(() => {}, 10000); // keep window open
-  setTimeout(() => {
-    console.log(chalk.green('You may close this window or copy the log to report any errors to the single-saberizer developer.'));
-  }, 2000);
 };
 
 const processSongFolder = (folder) => {
