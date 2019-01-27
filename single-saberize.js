@@ -1,14 +1,16 @@
 const chalk = require('chalk');
 const each = require('lodash/each');
 const filter = require('lodash/filter');
+const find = require('lodash/find');
 const fs = require('fs-extra');
 const path = require('path');
 const sortBy = require('lodash/sortBy');
 const startsWith = require('lodash/startsWith');
 const argv = require('yargs').argv;
 
-const { DIFFICULTY_LEVEL } = require('./constants/difficultyLevel');
+const { DIFFICULTY_LEVEL, DIFFICULTY_LEVELS } = require('./constants/difficultyLevel');
 
+const GENERATE_MISSING_DIFFICULTY_LEVELS = !!argv.difficulty; // experimental
 const DUPLICATED_FOLDER_PREFIX = '__SingleSaber__ ';
 const SONG_FOLDER = argv.path || path.join(path.dirname(process.execPath), 'CustomSongs');
 
@@ -58,7 +60,7 @@ const processSongFolderPath = ({ folderPath }) => {
   } else {
     // search recursively.
     debug(`Did not find "info.json" in "${folderPath}", searching subdirectories...`);
-    const subFolderPaths = getDirectories({ folderPath });
+    const subFolderPaths = getDirectories(folderPath);
     each(subFolderPaths, (subfolderPath) => {
       processSongFolderPath({ folderPath: subfolderPath });
     });
@@ -101,6 +103,10 @@ const updateSongInfo = ({ infoFilePath, infoObject, folderPath }) => {
   infoObject.oneSaber = true;
   infoObject.songName += ' (Single Saber)';
 
+  if (GENERATE_MISSING_DIFFICULTY_LEVELS) {
+    fillDifficultyLevels({infoObject, folderPath});
+  }
+
   try {
     let rawData = JSON.stringify(infoObject);
     fs.writeFileSync(infoFilePath, rawData);
@@ -113,13 +119,36 @@ const updateSongInfo = ({ infoFilePath, infoObject, folderPath }) => {
   }
 };
 
-// Example level
-// { difficulty: 'Expert',
-//   difficultyRank: 4,
-//   audioPath: 'Beat it.ogg',
-//   jsonPath: 'Expert.json',
-//   offset: -570,
-//   oldOffset: -570 }
+const fillDifficultyLevels = ({ infoObject, folderPath }) => {
+  const difficultLevelsByKey = {};
+  each(infoObject.difficultyLevels, (difficultyLevelInfoObject) => {
+    difficultLevelsByKey[difficultyLevelInfoObject.difficulty] = difficultyLevelInfoObject;
+  });
+
+  each(DIFFICULTY_LEVELS, ({ key, order }) => {
+    if(!difficultLevelsByKey[key]) {
+      const difficultyLevelToCopy = find(DIFFICULTY_LEVELS, (difficultyLevel) => {
+        // If there is a higher difficulty level written
+        return difficultyLevel.order > order && difficultLevelsByKey[difficultyLevel.key];
+      });
+      if (difficultyLevelToCopy) {
+        // copy it
+        infoObject.difficultyLevels.push({
+          ...difficultLevelsByKey[difficultyLevelToCopy.key],
+          difficulty: key,
+          jsonPath: `${key}.json`,
+          sourceDifficultyLevel: difficultyLevelToCopy, // unofficial flag
+        });
+        fs.copySync(
+          path.join(folderPath, `${difficultyLevelToCopy.key}.json`),
+          path.join(folderPath, `${key}.json`)
+        );
+        debug(`Copied "${key}" difficulty from "${difficultyLevelToCopy.key}".`);
+      }
+    }
+  });
+
+};
 
 const processDifficultyLevels = ({ folderPath, infoObject }) => {
   each(infoObject.difficultyLevels, (difficultyLevelInfoObject) => {
@@ -146,7 +175,7 @@ const processDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelInfoOb
   if(rawData) {
     try {
       const difficultyLevelObject = JSON.parse(rawData);
-      updateDifficultyLevel({ difficultyLevelFilePath, difficultyLevelObject, difficultyLevelInfoObject, infoObject });
+      updateDifficultyLevel({ difficultyLevelFilePath, difficultyLevelObject, difficultyLevelInfoObject });
     }
     catch(err) {
       error(`Error parsing "${difficultyLevelFilePath}". Aborting conversion.`);
@@ -156,8 +185,12 @@ const processDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelInfoOb
   }
 };
 
-const updateDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelObject, difficultyLevelInfoObject, infoObject }) => {
+const updateDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelObject, difficultyLevelInfoObject }) => {
+  const { offset } = difficultyLevelInfoObject;
+  const { _beatsPerMinute } = difficultyLevelObject;
+  const noteOffset = offset / 1000 * _beatsPerMinute / 60;
   const difficultyLevel = DIFFICULTY_LEVEL[difficultyLevelInfoObject.difficulty];
+  // debug(`Note offset: ${noteOffset}.`);
 
   const notes = [];
   let lastNote = { _time: 0 }, possibleRedConversion;
@@ -167,44 +200,58 @@ const updateDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelObject,
     if(note._type > 1) { // auto allow mines or whatever
       notes.push(note);
     } else {
-      if (possibleRedConversion) {
-        const timeElapsed2 = Math.abs(possibleRedConversion._time - note._time);
-        if (infoObject.beatsPerMinute / timeElapsed2 < difficultyLevel.timingThreshold) {
-          // flip the note for flow
-          // if(!lastNote || lastNote._cutDirection === note._cutDirection) {
-          //   possibleRedConversion._cutDirection = OPPOSING_DIRECTIONS[note._cutDirection];
-          // }
-          notes.push(possibleRedConversion);
-          lastNote = possibleRedConversion;
+      let isNoteValid = true;
+
+      // for generated levels, attempt to scale back note frequency - experimental
+      if(difficultyLevelInfoObject.sourceDifficultyLevel) {
+        isNoteValid = getNoteValidity({ note, difficultyLevelInfoObject, noteOffset });
+      }
+
+      if (isNoteValid) {
+        if (possibleRedConversion) {
+          const timeElapsed2 = Math.abs(possibleRedConversion._time - note._time);
+          if (_beatsPerMinute / timeElapsed2 < difficultyLevel.timingThreshold) {
+            // flip the note for flow - experimental
+            // if(!lastNote || lastNote._cutDirection === note._cutDirection) {
+            //   possibleRedConversion._cutDirection = OPPOSING_DIRECTIONS[note._cutDirection];
+            // }
+            notes.push(possibleRedConversion);
+            lastNote = possibleRedConversion;
+            possibleRedConversion = null;
+          }
+        }
+        if (!possibleRedConversion && note._type === 0) { // maybe make "red/left" into "blue/right" saber notes
+          const timeElapsed = Math.abs(lastNote._time - note._time);
+          if (_beatsPerMinute / timeElapsed < difficultyLevel.timingThreshold) {
+            possibleRedConversion = {
+              ...note,
+              _type: 1,
+            };
+          }
+        }
+        if (note._type === 1) { // auto allow "blue/right" saber notes
+          notes.push(note);
+          lastNote = note;
           possibleRedConversion = null;
         }
-      }
-      if (!possibleRedConversion && note._type === 0) { // maybe make "red/left" into "blue/right" saber notes
-        const timeElapsed = Math.abs(lastNote._time - note._time);
-        if (infoObject.beatsPerMinute / timeElapsed < difficultyLevel.timingThreshold) {
-          possibleRedConversion = {
-            ...note,
-            _type: 1,
-          };
-        }
-      }
-      if (note._type === 1) { // auto allow "blue/right" saber notes
-        notes.push(note);
-        lastNote = note;
-        possibleRedConversion = null;
       }
     }
   });
   difficultyLevelObject._notes = notes;
-
-  // Example note object:
-  // { _time: 8.229583740234375,
-  //   _lineIndex: 1,
-  //   _lineLayer: 0,
-  //   _type: 0,
-  //   _cutDirection: 1 },
+  if(difficultyLevelInfoObject.sourceDifficultyLevel) {
+    debug(`${notes.length} ${difficultyLevelInfoObject.difficulty} notes derived from ${_notes.length} ${difficultyLevelInfoObject.sourceDifficultyLevel.key} notes.`);
+  }
 
   writeDifficultyLevel({ difficultyLevelFilePath, difficultyLevelObject });
+};
+
+// Experimental logic to restrict notes to whole / half / etc.
+const getNoteValidity = ({ note, difficultyLevelInfoObject, noteOffset }) => {
+  const { noteTimeMod } = DIFFICULTY_LEVEL[difficultyLevelInfoObject.difficulty];
+  if (!noteTimeMod) return true;
+
+  const shiftedNote = (note._time - noteOffset);
+  return Math.round(shiftedNote * 16) / 16 === Math.round(shiftedNote * noteTimeMod) / noteTimeMod;
 };
 
 const writeDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelObject }) => {
