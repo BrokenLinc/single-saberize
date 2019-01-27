@@ -7,6 +7,8 @@ const sortBy = require('lodash/sortBy');
 const startsWith = require('lodash/startsWith');
 const argv = require('yargs').argv;
 
+const { DIFFICULTY_LEVEL } = require('./constants/difficultyLevel');
+
 const DUPLICATED_FOLDER_PREFIX = '__SingleSaber__ ';
 const SONG_FOLDER = argv.path || path.join(path.dirname(process.execPath), 'CustomSongs');
 
@@ -155,6 +157,8 @@ const processDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelInfoOb
 };
 
 const updateDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelObject, difficultyLevelInfoObject, infoObject }) => {
+  const difficultyLevel = DIFFICULTY_LEVEL[difficultyLevelInfoObject.difficulty];
+
   const notes = [];
   let lastNote = { _time: 0 }, possibleRedConversion;
   const _notes = sortBy(difficultyLevelObject._notes, ['_time']);
@@ -165,7 +169,7 @@ const updateDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelObject,
     } else {
       if (possibleRedConversion) {
         const timeElapsed2 = Math.abs(possibleRedConversion._time - note._time);
-        if (infoObject.beatsPerMinute / timeElapsed2 < 240) { //threshold
+        if (infoObject.beatsPerMinute / timeElapsed2 < difficultyLevel.timingThreshold) {
           // flip the note for flow
           // if(!lastNote || lastNote._cutDirection === note._cutDirection) {
           //   possibleRedConversion._cutDirection = OPPOSING_DIRECTIONS[note._cutDirection];
@@ -177,7 +181,7 @@ const updateDifficultyLevel = ({ difficultyLevelFilePath, difficultyLevelObject,
       }
       if (!possibleRedConversion && note._type === 0) { // maybe make "red/left" into "blue/right" saber notes
         const timeElapsed = Math.abs(lastNote._time - note._time);
-        if (infoObject.beatsPerMinute / timeElapsed < 240) { // threshold
+        if (infoObject.beatsPerMinute / timeElapsed < difficultyLevel.timingThreshold) {
           possibleRedConversion = {
             ...note,
             _type: 1,
